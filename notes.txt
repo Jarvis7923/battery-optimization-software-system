@@ -1,0 +1,40 @@
+Context - android.context.Context
+	Interface to global info about app environment. Used for access to app-specific resources and classes, and up-calls for app=level operations like launching activities. Can be used for us to get info about other apps, and could (maybe?) be used to launch notifications?
+
+	getSystemService(string) method - method from Context object. Returns a *Manager depending on the string flag passed. We can use the ACTIVITY_SERVICE flag to get an ActivityManager object. BATTERY_SERVICE flag to get a BatteryManager object.
+	startService(Intent) - start a service
+
+ActivityManager - android.app.ActivityManager
+	Class that gives info about, and interacts with, activities, services, and the containing process.
+	Potentially useful public methods:
+		getApplicationContext() - returns a Context, context of the Application object of the current process
+		getApplicationInfo() - returns full info for this contexts package
+		getRunningAppProcesses() - !!!!!!!!!! - Returns a list of application processes running on the device. Returns a List<RunningAppProcessInfo>, list of RunningAppProcessInfo classes for each app running. Beautiful. 
+
+RunningAppProcessInfo - android.app.ActivityManager.RunningAppProcessInfo
+
+Not the silver bullet, but has potentially useful info.
+	processName - name of the process
+	importance - Relative importance
+
+!!! Processes vs services - do we want to be listing (WifiManager), or just user-level apps (Chrome). Need to filter stuff out if the latter
+
+
+BatteryManager - android.os.BatteryManager
+	Has some constants and data for querying battery properties. This isn't exactly what we want, but it may be the best we've got. We might have to do some actual, janky computation to get usable values. 
+	getIntProperty(int id) - Use in conjunction with PROPERTY flags to get data. getIntProperty(BATTERY_PROPERTY_CAPACITY) returns the remaining capacity as a percent. BATTERY_PROPERTY_ENERGY_COUNTER gives remaining energy in nanowatt-hours - this stuff is janky, but we can turn it into something more usable, e.g. this property gives us how much battery is left. We'll probably have to infer some stuff.
+
+Anyone here good with current/voltage/etc.? Forgot everything from physics.
+
+Might need to set up a DB to keep the history of usage. :/ 
+
+
+AndroidStudio - IDE for Android development! WE SHOULD USE THIS!!!!!!!!!!!!! THIS WILL HELP WITH A LOT OF THE BULLSHIT!!!!
+	Provides a layout and does most of the UI for you. We just gotta agree on a certain layout, ideally a simple one. Kinda lets us implement a lot of this Scratch-style (drag and drop a button on the emulator and boom). We really need to use this, it will take away 70% of the work.
+	That all being said I have no idea about any of this and this may take away too much flexibility and make doing this battery stuff more complicated than normal.
+	Has an emulator, so we won't need a device to test.
+	Not sure how much of the stuff before this that this renders obsolete.
+
+https://www.youtube.com/watch?v=c-cRLjwsGg8 - Link to a tutorial using Android Studio implementing a simple Battery Checker. Good place to start.
+
+
