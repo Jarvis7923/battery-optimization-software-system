@@ -40,13 +40,13 @@ https://www.youtube.com/watch?v=c-cRLjwsGg8 - Link to a tutorial using Android S
 
 
 //////////////////// TODO /////////////////////
-* Get notifications working []
-* Check out weird bug on Lucas's computer []
-* Sorting ListView []
-* Displaying the value of the threshold setting []
-* Update the list (root privileges?) []
+* Get notifications working [] - Noah
+* Check out weird bug on Lucas's computer [] - Lucas
+* Sorting ListView [] - Siegfred
+* Displaying the value of the threshold setting [] - Shang
+* Update list to actually get other running apps (root privileges?) [] - Lucas
 *  ^(https://stackoverflow.com/questions/30619349/android-5-1-1-and-above-getrunningappprocesses-returns-my-application-packag)
-* Graphical view (progress bar) []
+* Graphical view (progress bar) [] - Shang
 *
 *
 *
