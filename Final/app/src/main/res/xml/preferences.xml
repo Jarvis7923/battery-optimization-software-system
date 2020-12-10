@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <SwitchPreferenceCompat
+        android:defaultValue="true"
+        android:key="example_switch"
+        android:summary="@string/switch_summary"
+        android:title="@string/switch_title" />
+    <CheckBoxPreference
+        android:defaultValue="true"
+        android:key="notifications_enabled_preference"
+        android:title="@string/notifications_enabled"
+        android:summary="@string/notifications_enabled_summary"/>
+    <EditTextPreference
+        android:defaultValue="true"
+        android:key="threshold_preference"
+        android:selectAllOnFocus="true"
+        android:persistent="true"
+        android:title="@string/threshold_title"
+        android:summary="@string/threshold_summary"/>
+</PreferenceScreen>
