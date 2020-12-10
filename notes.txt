@@ -9,7 +9,7 @@ ActivityManager - android.app.ActivityManager
 	Potentially useful public methods:
 		getApplicationContext() - returns a Context, context of the Application object of the current process
 		getApplicationInfo() - returns full info for this contexts package
-		getRunningAppProcesses() - !!!!!!!!!! - Returns a list of application processes running on the device. Returns a List<RunningAppProcessInfo>, list of RunningAppProcessInfo classes for each app running. Beautiful. 
+		getRunningAppProcesses() - !!!!!!!!!! - Returns a list of application processes running on the device. Returns a List<RunningAppProcessInfo>, list of RunningAppProcessInfo classes for each app running. Beautiful.
 
 RunningAppProcessInfo - android.app.ActivityManager.RunningAppProcessInfo
 
@@ -21,12 +21,12 @@ Not the silver bullet, but has potentially useful info.
 
 
 BatteryManager - android.os.BatteryManager
-	Has some constants and data for querying battery properties. This isn't exactly what we want, but it may be the best we've got. We might have to do some actual, janky computation to get usable values. 
+	Has some constants and data for querying battery properties. This isn't exactly what we want, but it may be the best we've got. We might have to do some actual, janky computation to get usable values.
 	getIntProperty(int id) - Use in conjunction with PROPERTY flags to get data. getIntProperty(BATTERY_PROPERTY_CAPACITY) returns the remaining capacity as a percent. BATTERY_PROPERTY_ENERGY_COUNTER gives remaining energy in nanowatt-hours - this stuff is janky, but we can turn it into something more usable, e.g. this property gives us how much battery is left. We'll probably have to infer some stuff.
 
 Anyone here good with current/voltage/etc.? Forgot everything from physics.
 
-Might need to set up a DB to keep the history of usage. :/ 
+Might need to set up a DB to keep the history of usage. :/
 
 
 AndroidStudio - IDE for Android development! WE SHOULD USE THIS!!!!!!!!!!!!! THIS WILL HELP WITH A LOT OF THE BULLSHIT!!!!
@@ -38,3 +38,28 @@ AndroidStudio - IDE for Android development! WE SHOULD USE THIS!!!!!!!!!!!!! THI
 https://www.youtube.com/watch?v=c-cRLjwsGg8 - Link to a tutorial using Android Studio implementing a simple Battery Checker. Good place to start.
 
 
+
+//////////////////// TODO /////////////////////
+* Get notifications working []
+* Check out weird bug on Lucas's computer []
+* Sorting ListView []
+* Displaying the value of the threshold setting []
+* Update the list (root privileges?) []
+*  ^(https://stackoverflow.com/questions/30619349/android-5-1-1-and-above-getrunningappprocesses-returns-my-application-packag)
+* Graphical view (progress bar) []
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
