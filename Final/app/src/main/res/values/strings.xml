@@ -18,5 +18,5 @@
     <string name="threshold_title">Battery percentage threshold</string>
     <string name="threshold_summary">Percent battery to be notified at:</string>
     <string name="charging_status">Charging status:</string>
-    <string name="time_to_charge">N</string>
+    <string name="time_to_charge">Time to charge</string>
 </resources>
