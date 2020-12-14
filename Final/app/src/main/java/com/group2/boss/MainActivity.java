@@ -96,37 +96,17 @@ public class MainActivity extends AppCompatActivity {
         }
 
         ProgressBar progressBar = findViewById(R.id.determinateBar);
+        // todo: the progress bar color according to the charging status
         progressBar.setProgressTintList(ColorStateList.valueOf(Color.YELLOW));
-        progressBar.setProgress(0);
-
+        progressBar.setProgress(0); // todo: according to the battery level
 
         // initialize our XYPlot reference:
         plot = (XYPlot) findViewById(R.id.plot);
-//        plot.setRenderMode(Plot.RenderMode.USE_BACKGROUND_THREAD);
-
-//        // create a couple arrays of y-values to plot:
-//        final Number[] domainLabels = {1, 2, 3, 6, 7, 8, 9, 10, 13, 14};
-//
-//        Number[] series1Numbers = {1, 4, 2, 8, 4, 16, 8, 32, 16, 64};
-
-        // turn the above arrays into XYSeries':
-        // (Y_VALS_ONLY means use the element index as the x value)
-
 
         // create formatters to use for drawing a series using LineAndPointRenderer
         // and configure them from xml:
         LineAndPointFormatter series1Format =
                 new LineAndPointFormatter(Color.RED, null, null, null);
-
-
-//        // just for fun, add some smoothing to the lines:
-//        // see: http://androidplot.com/smooth-curves-and-androidplot/
-//        series1Format.setInterpolationParams(
-//                new CatmullRomInterpolator.Params(10, CatmullRomInterpolator.Type.Centripetal));
-//
-//        series2Format.setInterpolationParams(
-//                new CatmullRomInterpolator.Params(10, CatmullRomInterpolator.Type.Centripetal));
-
         // add a new series' to the xyplot:
         plot.addSeries(series1, series1Format);
 
