@@ -9,9 +9,20 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
+import android.graphics.DashPathEffect;
 import android.os.BatteryManager;
 import android.os.Bundle;
 
+import com.androidplot.Plot;
+import com.androidplot.util.PixelUtils;
+import com.androidplot.xy.CatmullRomInterpolator;
+import com.androidplot.xy.LineAndPointFormatter;
+import com.androidplot.xy.SimpleXYSeries;
+import com.androidplot.xy.XYGraphWidget;
+import com.androidplot.xy.XYPlot;
+import com.androidplot.xy.XYSeries;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
 
@@ -26,9 +37,14 @@ import android.view.MenuItem;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import java.text.FieldPosition;
+import java.text.Format;
+import java.text.ParsePosition;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -39,6 +55,13 @@ public class MainActivity extends AppCompatActivity {
     ArrayList<String> arrList;
     ArrayAdapter adapter;
     Timer myTimer;
+
+    int t = 14;
+    XYPlot plot = null;
+    final Number[] domainLabels = {1, 2, 3, 6, 7, 8, 9, 10, 13, 14};
+    Number[] series1Numbers = {1, 4, 2, 8, 4, 16, 8, 32, 16, 64};
+    SimpleXYSeries series1 = new SimpleXYSeries(Arrays.asList(domainLabels),
+            Arrays.asList(series1Numbers), "Series1");
 
     private static int period = 1000;
     //private int count = 0; //Count is just for debugging purposes to ensure names are being updated
@@ -53,6 +76,55 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+
+        ProgressBar progressBar = findViewById(R.id.determinateBar);
+        progressBar.setProgressTintList(ColorStateList.valueOf(Color.YELLOW));
+        progressBar.setProgress(0);
+
+
+        // initialize our XYPlot reference:
+        plot = (XYPlot) findViewById(R.id.plot);
+//        plot.setRenderMode(Plot.RenderMode.USE_BACKGROUND_THREAD);
+
+//        // create a couple arrays of y-values to plot:
+//        final Number[] domainLabels = {1, 2, 3, 6, 7, 8, 9, 10, 13, 14};
+//
+//        Number[] series1Numbers = {1, 4, 2, 8, 4, 16, 8, 32, 16, 64};
+
+        // turn the above arrays into XYSeries':
+        // (Y_VALS_ONLY means use the element index as the x value)
+
+
+        // create formatters to use for drawing a series using LineAndPointRenderer
+        // and configure them from xml:
+        LineAndPointFormatter series1Format =
+                new LineAndPointFormatter(Color.RED, null, null, null);
+
+
+//        // just for fun, add some smoothing to the lines:
+//        // see: http://androidplot.com/smooth-curves-and-androidplot/
+//        series1Format.setInterpolationParams(
+//                new CatmullRomInterpolator.Params(10, CatmullRomInterpolator.Type.Centripetal));
+//
+//        series2Format.setInterpolationParams(
+//                new CatmullRomInterpolator.Params(10, CatmullRomInterpolator.Type.Centripetal));
+
+        // add a new series' to the xyplot:
+        plot.addSeries(series1, series1Format);
+
+//        plot.getGraph().getLineLabelStyle(XYGraphWidget.Edge.BOTTOM).setFormat(new Format() {
+//            @Override
+//            public StringBuffer format(Object obj, StringBuffer toAppendTo, FieldPosition pos) {
+//                return null;
+////                int i = Math.round(((Number) obj).floatValue());
+////                return toAppendTo.append(domainLabels[i]);
+//            }
+//            @Override
+//            public Object parseObject(String source, ParsePosition pos) {
+//                return null;
+//            }
+//        });
+
 
         listView = (ListView)findViewById(R.id.AppList);
         arrList = new ArrayList<>();
@@ -119,7 +191,14 @@ public class MainActivity extends AppCompatActivity {
             TextView is_charging_view = (TextView)findViewById(R.id.is_charging);
             TextView time_left_view = (TextView)findViewById(R.id.timeToCharge);
             int batLevel = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
-            //System.out.println("BATLEVEL: " + batLevel);
+
+            System.out.println("BATLEVEL: " + batLevel);
+            ProgressBar progressBar = findViewById(R.id.determinateBar);
+            progressBar.setProgress(batLevel);
+
+
+            series1.addLast(++t, batLevel);
+            plot.redraw();
 
             IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
             Intent batteryStatus = ctx.registerReceiver(null, ifilter);
@@ -143,6 +222,8 @@ public class MainActivity extends AppCompatActivity {
 
             if (isCharging) {
                 is_charging_view.setText("Currently charging");
+                progressBar.setProgressTintList(ColorStateList.valueOf(Color.GREEN));
+
                 long time_left = bm.computeChargeTimeRemaining();
                 //System.out.println("Time left: " + time_left);
                 if (time_left == -1)
@@ -154,6 +235,8 @@ public class MainActivity extends AppCompatActivity {
             }
             else {
                 is_charging_view.setText("Not currently charging");
+                progressBar.setProgressTintList(ColorStateList.valueOf(Color.YELLOW));
+
                 time_left_view.setText(String.valueOf("Time until charged: Never!"));
             }
         }
@@ -171,7 +254,6 @@ public class MainActivity extends AppCompatActivity {
                 String processName = runningAppProcessInfo.get(i).processName;
                 //System.out.println(processName);
                 if (isForeground(ctx, processName)) {
-
                     adapter.add(processName + "             -      Foreground");
                 }
                 else {
