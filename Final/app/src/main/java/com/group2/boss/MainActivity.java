@@ -45,6 +45,8 @@ public class MainActivity extends AppCompatActivity {
 
     public static final String SPECIFIC_APP_MESSAGE = "com.group2.boss.SPECIFIC";
 
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -217,11 +219,12 @@ public class MainActivity extends AppCompatActivity {
         // https://stackoverflow.com/questions/17915670/android-push-notification-by-battery-percentage-without-launching-the-app
         // https://www.vogella.com/tutorials/AndroidNotifications/article.html
         System.out.println("Attempting to send notification");
+
         Notification.Builder builder = new Notification.Builder(ctx);
         Intent intent = new Intent(ctx, MainActivity.class);
         // use System.currentTimeMillis() to have a unique ID for the pending intent
         PendingIntent pIntent = PendingIntent.getActivity(ctx, (int) System.currentTimeMillis(), intent, 0);
-        Notification notif  = new Notification.Builder(this)
+        builder
                 .setContentTitle("Battery Alert")
                 .setContentText("Device battery has fallen below provided threshold")
                 .setSmallIcon(R.drawable.boss)
@@ -230,9 +233,10 @@ public class MainActivity extends AppCompatActivity {
 
         NotificationManager notificationManager
                 = (NotificationManager)ctx.getSystemService(Context.NOTIFICATION_SERVICE);
-
+        Notification notif = builder.build();
         notificationManager.notify(0, notif);
     }
+
 
     private static boolean isForeground(Context ctx, String myPackage){
         ActivityManager manager = (ActivityManager) ctx.getSystemService(ACTIVITY_SERVICE);
