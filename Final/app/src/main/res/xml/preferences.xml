@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android">
 
     <SwitchPreferenceCompat
         android:defaultValue="true"
@@ -12,10 +13,11 @@
         android:title="@string/notifications_enabled"
         android:summary="@string/notifications_enabled_summary"/>
     <EditTextPreference
-        android:defaultValue="true"
+        android:defaultValue="20"
         android:key="threshold_preference"
-        android:selectAllOnFocus="true"
         android:persistent="true"
+        android:selectAllOnFocus="true"
+        android:summary="@string/threshold_summary"
         android:title="@string/threshold_title"
-        android:summary="@string/threshold_summary"/>
+        app:defaultValue="false" />
 </PreferenceScreen>

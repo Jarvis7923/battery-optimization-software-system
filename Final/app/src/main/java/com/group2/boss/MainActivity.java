@@ -4,16 +4,22 @@ import android.app.ActivityManager;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.app.usage.UsageEvents;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.DashPathEffect;
 import android.os.BatteryManager;
 import android.os.Bundle;
+import android.app.usage.UsageStats;
+import android.app.usage.UsageStatsManager;
+import android.app.Service;
 
 import com.androidplot.Plot;
 import com.androidplot.util.PixelUtils;
@@ -45,9 +51,13 @@ import java.text.Format;
 import java.text.ParsePosition;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
+
+import android.provider.Settings;
+
 
 public class MainActivity extends AppCompatActivity {
 
@@ -76,6 +86,11 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+
+        if (getUsageStatsList(this).isEmpty()){
+            Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
+            startActivity(intent);
+        }
 
         ProgressBar progressBar = findViewById(R.id.determinateBar);
         progressBar.setProgressTintList(ColorStateList.valueOf(Color.YELLOW));
@@ -242,51 +257,46 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-    private Runnable Update_List = new Runnable() {
+    private final Runnable Update_List = new Runnable() {
         public void run() {
             System.out.println("Tick!");
             adapter.clear();
+
             Context ctx = getApplicationContext();
-            ActivityManager am = (ActivityManager) ctx.getSystemService(Context.ACTIVITY_SERVICE);
-            List<ActivityManager.RunningAppProcessInfo> runningAppProcessInfo = am.getRunningAppProcesses();
+            PackageManager packageManager = ctx.getPackageManager();
+            UsageStatsManager usm = (UsageStatsManager) ctx.getSystemService(Context.USAGE_STATS_SERVICE);
+            Calendar calendar = Calendar.getInstance();
+            long endTime = calendar.getTimeInMillis();
+            calendar.add(Calendar.YEAR, -1);
+            long startTime = calendar.getTimeInMillis();
 
-            for (int i = 0; i < runningAppProcessInfo.size(); i++) {
-                String processName = runningAppProcessInfo.get(i).processName;
-                //System.out.println(processName);
-                if (isForeground(ctx, processName)) {
-                    adapter.add(processName + "             -      Foreground");
-                }
-                else {
-                    adapter.add(processName);
+            UsageEvents uEvents = usm.queryEvents(startTime, endTime);
+            while (uEvents.hasNextEvent()) {
+                // https://stackoverflow.com/questions/21215152/how-to-get-names-of-background-running-apps-in-android
+                UsageEvents.Event e = new UsageEvents.Event();
+                uEvents.getNextEvent(e);
+                String packageName = e.getPackageName();
+                try {
+                    String name = packageManager.getApplicationInfo(packageName, 0).loadLabel(packageManager).toString();
+                    adapter.add(name);
+                } catch (NameNotFoundException nameNotFoundException) {
+                    nameNotFoundException.printStackTrace();
                 }
             }
-            if (runningAppProcessInfo.size() < 5) {
-                adapter.add("Padding!");
-                adapter.add("Padding!");
-                adapter.add("Padding!");
-                adapter.add("Padding!");
-                adapter.add("Padding!");
-                adapter.add("Padding!");
-                adapter.add("Padding!");
-                adapter.add("Padding!");
-                adapter.add("Padding!");
 
-            }
-            //count++;
 
             SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(ctx);
             Boolean switchPref = sharedPref.getBoolean
                     (SettingsActivity.KEY_PREF_SWITCH_1, false);
             String thresholdPref = sharedPref.getString(SettingsActivity.KEY_PREF_THRESHOLD_1, null);
             //if (thresholdPref != null)
-             //   System.out.println("Threshold value: " + thresholdPref);
+            //   System.out.println("Threshold value: " + thresholdPref);
             if (switchPref) {
                 // Sort alphabetically ascending
                 // Conditional just to not add too much noise to logs
                 //if (count % 5 == 0)
                 //   System.out.println("Ascending pref");
-            }
-            else {
+            } else {
                 // Sort alphabetically descending
                 // Conditional just to not add too much noise to logs
                 //if (count % 5 == 0)
@@ -319,10 +329,20 @@ public class MainActivity extends AppCompatActivity {
         notificationManager.notify(0, notif);
     }
 
+    private static List<UsageStats> getUsageStatsList(Context context){
+        UsageStatsManager usm =  (UsageStatsManager) context.getSystemService(context.USAGE_STATS_SERVICE);
+        Calendar calendar = Calendar.getInstance();
+        long endTime = calendar.getTimeInMillis();
+        calendar.add(Calendar.YEAR, -1);
+        long startTime = calendar.getTimeInMillis();
+
+        List<UsageStats> usageStatsList = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY,startTime,endTime);
+        return usageStatsList;
+    }
 
     private static boolean isForeground(Context ctx, String myPackage){
         ActivityManager manager = (ActivityManager) ctx.getSystemService(ACTIVITY_SERVICE);
-        List< ActivityManager.RunningTaskInfo > runningTaskInfo = manager.getRunningTasks(1);
+        List<ActivityManager.RunningTaskInfo> runningTaskInfo = manager.getRunningTasks(1);
 
         ComponentName componentInfo = runningTaskInfo.get(0).topActivity;
         if(componentInfo.getPackageName().equals(myPackage)) {
