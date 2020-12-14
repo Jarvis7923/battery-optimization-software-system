@@ -2,6 +2,7 @@ package com.group2.boss;
 
 import android.app.ActivityManager;
 import android.app.Notification;
+import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.usage.UsageEvents;
@@ -16,6 +17,7 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.DashPathEffect;
 import android.os.BatteryManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.app.usage.UsageStats;
 import android.app.usage.UsageStatsManager;
@@ -32,6 +34,7 @@ import com.androidplot.xy.XYSeries;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
 
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.preference.PreferenceManager;
@@ -307,12 +310,30 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
+    @RequiresApi(api = Build.VERSION_CODES.O)
     private void notifyUser(Context ctx) {
         // https://stackoverflow.com/questions/17915670/android-push-notification-by-battery-percentage-without-launching-the-app
         // https://www.vogella.com/tutorials/AndroidNotifications/article.html
         System.out.println("Attempting to send notification");
+        int NOTIFICATION_ID = 234;
+        String CHANNEL_ID = "my_channel_01";
+        NotificationManager notificationManager
+                = (NotificationManager)ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            CharSequence name = "my_channel";
+            String Description = "This is my channel";
+            int importance = NotificationManager.IMPORTANCE_HIGH;
+            NotificationChannel mChannel = new NotificationChannel(CHANNEL_ID, name, importance);
+            mChannel.setDescription(Description);
+            mChannel.enableLights(true);
+            mChannel.setLightColor(Color.RED);
+            mChannel.enableVibration(true);
+            mChannel.setVibrationPattern(new long[]{100, 200, 300, 400, 500, 400, 300, 200, 400});
+            mChannel.setShowBadge(false);
+            notificationManager.createNotificationChannel(mChannel);
+        }
 
-        Notification.Builder builder = new Notification.Builder(ctx);
+        Notification.Builder builder = new Notification.Builder(ctx, CHANNEL_ID);
         Intent intent = new Intent(ctx, MainActivity.class);
         // use System.currentTimeMillis() to have a unique ID for the pending intent
         PendingIntent pIntent = PendingIntent.getActivity(ctx, (int) System.currentTimeMillis(), intent, 0);
@@ -323,10 +344,9 @@ public class MainActivity extends AppCompatActivity {
                 .setContentIntent(pIntent)
                 .setAutoCancel(true).build();
 
-        NotificationManager notificationManager
-                = (NotificationManager)ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+
         Notification notif = builder.build();
-        notificationManager.notify(0, notif);
+        notificationManager.notify(NOTIFICATION_ID, notif);
     }
 
     private static List<UsageStats> getUsageStatsList(Context context){
