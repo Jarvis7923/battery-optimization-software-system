@@ -55,7 +55,11 @@ import java.text.ParsePosition;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.ListIterator;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -147,7 +151,7 @@ public class MainActivity extends AppCompatActivity {
                 TimerMethod();
             }
 
-        }, 0, 1000);
+        }, 0, 300);
 
         listView.setAdapter(adapter);
     }
@@ -254,6 +258,7 @@ public class MainActivity extends AppCompatActivity {
             long startTime = calendar.getTimeInMillis();
 
             UsageEvents uEvents = usm.queryEvents(startTime, endTime);
+            arrList.clear();
             while (uEvents.hasNextEvent()) {
                 // https://stackoverflow.com/questions/21215152/how-to-get-names-of-background-running-apps-in-android
                 UsageEvents.Event e = new UsageEvents.Event();
@@ -261,12 +266,21 @@ public class MainActivity extends AppCompatActivity {
                 String packageName = e.getPackageName();
                 try {
                     String name = packageManager.getApplicationInfo(packageName, 0).loadLabel(packageManager).toString();
-                    adapter.add(name);
+                    arrList.add(name);
                 } catch (NameNotFoundException nameNotFoundException) {
-                    nameNotFoundException.printStackTrace();
+
                 }
             }
-
+            Set<String> set = new LinkedHashSet<>();
+            set.addAll(arrList);
+            arrList.clear();
+            arrList.addAll(set);
+            ListIterator<String> iter = arrList.listIterator();
+            while (iter.hasNext()) {
+                if (iter.next().startsWith("com.")) {
+                    iter.remove();
+                }
+            }
 
             SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(ctx);
             Boolean switchPref = sharedPref.getBoolean
@@ -277,6 +291,7 @@ public class MainActivity extends AppCompatActivity {
             if (switchPref) {
                 // Sort alphabetically ascending
                 // Conditional just to not add too much noise to logs
+                Collections.sort(arrList);
                 //if (count % 5 == 0)
                 //   System.out.println("Ascending pref");
             } else {
