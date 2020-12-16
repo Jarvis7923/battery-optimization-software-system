@@ -205,6 +205,7 @@ public class MainActivity extends AppCompatActivity {
     private XYPlot plot;
     private PlotUpdater plotUpdater;
     private ProgressBarUpdater progressBarUpdater;
+
     private BatteryDataSource batteryDataSource;
     private Thread batteryMonitorThread;
 //    final Number[] domainLabels = {1, 2, 3, 6, 7, 8, 9, 10};
