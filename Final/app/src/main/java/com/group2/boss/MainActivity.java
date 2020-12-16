@@ -124,7 +124,7 @@ public class MainActivity extends AppCompatActivity {
             try {
                 keepRunning = true;
                 while (keepRunning) {
-                    System.out.println("BATTERY: " + batLevel);
+                    //System.out.println("BATTERY: " + batLevel);
                     Thread.sleep(100); // decrease or remove to speed up the refresh rate.
                     batLevel = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
                     notifier.notifyObservers();
@@ -196,11 +196,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     ListView listView;
-    ArrayList<String> arrList;
+    ArrayList<String> templateList, uiList;
     ArrayAdapter adapter;
     Timer myTimer;
 
     int t = 10;
+    private int batteryLevel = 0;
     private XYPlot plot;
     private PlotUpdater plotUpdater;
     private ProgressBarUpdater progressBarUpdater;
@@ -274,16 +275,17 @@ public class MainActivity extends AppCompatActivity {
 //        });
 
         listView = (ListView)findViewById(R.id.AppList);
-        arrList = new ArrayList<>();
-        arrList.add("Temp");
-        adapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1, arrList);
+        templateList = new ArrayList<>();
+        uiList = new ArrayList<>();
+        uiList.add("Temp");
+        adapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1, uiList);
 
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 System.out.println("Clicked element! ID: " + id + " Position: " + position);
                 Intent intent = new Intent(getApplicationContext(), SpecificAppActivity.class);
-                String name = arrList.get(position);
+                String name = uiList.get(position);
                 intent.putExtra(SPECIFIC_APP_MESSAGE, name);
                 startActivity(intent);
             }
@@ -338,51 +340,109 @@ public class MainActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
+    private void refreshTemplateList() {
+        Context ctx = getApplicationContext();
+        PackageManager packageManager = ctx.getPackageManager();
+        UsageStatsManager usm = (UsageStatsManager) ctx.getSystemService(Context.USAGE_STATS_SERVICE);
+        Calendar calendar = Calendar.getInstance();
+        long endTime = calendar.getTimeInMillis();
+        calendar.add(Calendar.YEAR, -1);
+        long startTime = calendar.getTimeInMillis();
+
+        UsageEvents uEvents = usm.queryEvents(startTime, endTime);
+        templateList.clear();
+        while (uEvents.hasNextEvent()) {
+            // https://stackoverflow.com/questions/21215152/how-to-get-names-of-background-running-apps-in-android
+            UsageEvents.Event e = new UsageEvents.Event();
+            uEvents.getNextEvent(e);
+            String packageName = e.getPackageName();
+            try {
+                String name = packageManager.getApplicationInfo(packageName, 0).loadLabel(packageManager).toString();
+                templateList.add(name);
+            } catch (NameNotFoundException nameNotFoundException) {
+
+            }
+        }
+        Set<String> set = new LinkedHashSet<>();
+        set.addAll(templateList);
+        templateList.clear();
+        templateList.addAll(set);
+        ListIterator<String> iter = templateList.listIterator();
+        while (iter.hasNext()) {
+            if (iter.next().startsWith("com.")) {
+                iter.remove();
+            }
+        }
+        SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(ctx);
+            Boolean switchPref = sharedPref.getBoolean
+                    (SettingsActivity.KEY_PREF_SWITCH_1, false);
+            String thresholdPref = sharedPref.getString(SettingsActivity.KEY_PREF_THRESHOLD_1, null);
+            if (switchPref) {
+                Collections.sort(templateList);
+            } else {
+                // Sort alphabetically descending
+                // Conditional just to not add too much noise to logs
+                //if (count % 5 == 0)
+                //    System.out.println("Descending pref");
+                Collections.sort(templateList, Collections.reverseOrder());
+            }
+    }
+
+    private int getBatteryLevel() {
+        Context ctx = getApplicationContext();
+        BatteryManager bm = (BatteryManager)ctx.getSystemService(BATTERY_SERVICE);
+        TextView is_charging_view = (TextView)findViewById(R.id.is_charging);
+        TextView time_left_view = (TextView)findViewById(R.id.timeToCharge);
+        return bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
+    }
+
     private void TimerMethod() {
+        this.refreshTemplateList();
         this.runOnUiThread(Update_List);
+        batteryLevel = getBatteryLevel();
         this.runOnUiThread(Update_Battery_Charging_Status);
     }
 
     private Runnable Update_Battery_Charging_Status = new Runnable() {
         @Override
         public void run() {
-//            Context ctx = getApplicationContext();
+            Context ctx = getApplicationContext();
 //            BatteryManager bm = (BatteryManager)ctx.getSystemService(BATTERY_SERVICE);
-//            TextView is_charging_view = (TextView)findViewById(R.id.is_charging);
-//            TextView time_left_view = (TextView)findViewById(R.id.timeToCharge);
+            TextView is_charging_view = (TextView)findViewById(R.id.is_charging);
+            TextView time_left_view = (TextView)findViewById(R.id.timeToCharge);
 //            int batLevel = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
 //
 //            System.out.println("BATLEVEL: " + batLevel);
-//            ProgressBar progressBar = findViewById(R.id.determinateBar);
-//            progressBar.setProgress(batLevel);
+            ProgressBar progressBar = findViewById(R.id.determinateBar);
+            progressBar.setProgress(batteryLevel);
 //
 //
-//            series1.addLast(++t, batLevel);
-//            plot.redraw();
+            //.addLast(++t, batteryLevel);
+            //plot.redraw();
 //
-//            IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
-//            Intent batteryStatus = ctx.registerReceiver(null, ifilter);
-//            int status = batteryStatus.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
-//            boolean isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-//                    status == BatteryManager.BATTERY_STATUS_FULL;
+            IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+            Intent batteryStatus = ctx.registerReceiver(null, ifilter);
+            int status = batteryStatus.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+            boolean isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                    status == BatteryManager.BATTERY_STATUS_FULL;
 //
-//            SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(ctx);
-//            int battery_threshold_pref;
-//            try {
-//                battery_threshold_pref = Integer.parseInt(sharedPref.getString(SettingsActivity.KEY_PREF_THRESHOLD_1, null));
-//            }
-//            catch (NumberFormatException e) {
-//                battery_threshold_pref = 0;
-//            }
+            SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(ctx);
+            int battery_threshold_pref;
+            try {
+                battery_threshold_pref = Integer.parseInt(sharedPref.getString(SettingsActivity.KEY_PREF_THRESHOLD_1, null));
+            }
+            catch (NumberFormatException e) {
+                battery_threshold_pref = 0;
+            }
 //
 //            if (batLevel <= battery_threshold_pref) {
 //                System.out.println("BELOW THRESHOLD!!!");
 //                notifyUser(ctx);
 //            }
 //
-//            if (isCharging) {
-//                is_charging_view.setText("Currently charging");
-//                progressBar.setProgressTintList(ColorStateList.valueOf(Color.GREEN));
+            if (isCharging) {
+               is_charging_view.setText("Currently charging");
+                progressBar.setProgressTintList(ColorStateList.valueOf(Color.GREEN));
 //
 //                long time_left = bm.computeChargeTimeRemaining();
 //                //System.out.println("Time left: " + time_left);
@@ -392,74 +452,22 @@ public class MainActivity extends AppCompatActivity {
 //                    time_left_view.setText("Fully charged");
 //                else
 //                    time_left_view.setText("Time until charged: " + String.valueOf(time_left / 1000) + " seconds.");
-//            }
-//            else {
-//                is_charging_view.setText("Not currently charging");
-//                progressBar.setProgressTintList(ColorStateList.valueOf(Color.YELLOW));
-//
-//                time_left_view.setText(String.valueOf("Time until charged: Never!"));
-//            }
+            }
+            else {
+                is_charging_view.setText("Not currently charging");
+                progressBar.setProgressTintList(ColorStateList.valueOf(Color.YELLOW));
+
+                time_left_view.setText(String.valueOf("Time until charged: Never!"));
+            }
         }
     };
 
     private final Runnable Update_List = new Runnable() {
         public void run() {
-
-//            adapter.clear();
-//
-//            Context ctx = getApplicationContext();
-//            PackageManager packageManager = ctx.getPackageManager();
-//            UsageStatsManager usm = (UsageStatsManager) ctx.getSystemService(Context.USAGE_STATS_SERVICE);
-//            Calendar calendar = Calendar.getInstance();
-//            long endTime = calendar.getTimeInMillis();
-//            calendar.add(Calendar.YEAR, -1);
-//            long startTime = calendar.getTimeInMillis();
-//
-//            UsageEvents uEvents = usm.queryEvents(startTime, endTime);
-//            arrList.clear();
-//            while (uEvents.hasNextEvent()) {
-//                // https://stackoverflow.com/questions/21215152/how-to-get-names-of-background-running-apps-in-android
-//                UsageEvents.Event e = new UsageEvents.Event();
-//                uEvents.getNextEvent(e);
-//                String packageName = e.getPackageName();
-//                try {
-//                    String name = packageManager.getApplicationInfo(packageName, 0).loadLabel(packageManager).toString();
-//                    arrList.add(name);
-//                } catch (NameNotFoundException nameNotFoundException) {
-//
-//                }
-//            }
-//            Set<String> set = new LinkedHashSet<>();
-//            set.addAll(arrList);
-//            arrList.clear();
-//            arrList.addAll(set);
-//            ListIterator<String> iter = arrList.listIterator();
-//            while (iter.hasNext()) {
-//                if (iter.next().startsWith("com.")) {
-//                    iter.remove();
-//                }
-//            }
-//
-//            SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(ctx);
-//            Boolean switchPref = sharedPref.getBoolean
-//                    (SettingsActivity.KEY_PREF_SWITCH_1, false);
-//            String thresholdPref = sharedPref.getString(SettingsActivity.KEY_PREF_THRESHOLD_1, null);
-//            //if (thresholdPref != null)
-//            //   System.out.println("Threshold value: " + thresholdPref);
-//            if (switchPref) {
-//                // Sort alphabetically ascending
-//                // Conditional just to not add too much noise to logs
-//                Collections.sort(arrList);
-//                //if (count % 5 == 0)
-//                //   System.out.println("Ascending pref");
-//            } else {
-//                // Sort alphabetically descending
-//                // Conditional just to not add too much noise to logs
-//                //if (count % 5 == 0)
-//                //    System.out.println("Descending pref");
-//            }
-//
-//            adapter.notifyDataSetChanged();
+            adapter.clear();
+            uiList.clear();
+            uiList.addAll(templateList);
+            adapter.notifyDataSetChanged();
         }
     };
 
