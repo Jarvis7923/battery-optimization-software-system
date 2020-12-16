@@ -399,9 +399,9 @@ public class MainActivity extends AppCompatActivity {
 
     private void TimerMethod() {
         this.refreshTemplateList();
-        this.runOnUiThread(Update_List);
         batteryLevel = getBatteryLevel();
         this.runOnUiThread(Update_Battery_Charging_Status);
+        this.runOnUiThread(Update_List);
     }
 
     private Runnable Update_Battery_Charging_Status = new Runnable() {
