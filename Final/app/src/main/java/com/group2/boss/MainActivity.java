@@ -205,7 +205,6 @@ public class MainActivity extends AppCompatActivity {
                     }
 
                     if (batteryInfo.batLevel <= battery_threshold_pref && !batteryInfo.isCharging && !isNotified ) {
-                        System.out.println("BELOW THRESHOLD!!!");
                         notifyUser(ctx);
                         isNotified = true;
                     }

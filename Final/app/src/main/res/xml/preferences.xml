@@ -18,6 +18,5 @@
         android:persistent="true"
         android:selectAllOnFocus="true"
         android:summary="@string/threshold_summary"
-        android:title="@string/threshold_title"
-        app:defaultValue="false" />
+        android:title="@string/threshold_title"/>
 </PreferenceScreen>
