@@ -11,6 +11,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.ColorStateList;
@@ -63,6 +64,7 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Map;
 import java.util.Observable;
 import java.util.Observer;
 import java.util.Set;
@@ -281,7 +283,7 @@ public class MainActivity extends AppCompatActivity {
         uiList.add("Temp");
         adapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1, uiList);
 
-        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+        /*listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 System.out.println("Clicked element! ID: " + id + " Position: " + position);
@@ -290,7 +292,7 @@ public class MainActivity extends AppCompatActivity {
                 intent.putExtra(SPECIFIC_APP_MESSAGE, name);
                 startActivity(intent);
             }
-        });
+        });*/
 
         myTimer = new Timer();
         myTimer.schedule(new TimerTask() {
@@ -302,6 +304,7 @@ public class MainActivity extends AppCompatActivity {
         }, 0, 1000);
 
         listView.setAdapter(adapter);
+        refreshList();
     }
         @Override
     public void onResume() {
@@ -339,6 +342,42 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    private void refreshList() {
+        System.out.println("Start refresh list");
+        Context ctx = getApplicationContext();
+        PackageManager packageManager = ctx.getPackageManager();
+        UsageStatsManager usm = (UsageStatsManager) ctx.getSystemService(Context.USAGE_STATS_SERVICE);
+        Calendar calendar = Calendar.getInstance();
+        long endTime = calendar.getTimeInMillis();
+        calendar.add(Calendar.YEAR, -1);
+        long startTime = calendar.getTimeInMillis();
+
+        Map<String, UsageStats> stats = usm.queryAndAggregateUsageStats(startTime, endTime);
+        List<ApplicationInfo> apps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA);
+
+        for (ApplicationInfo app : apps) {
+            if (stats.containsKey(app.packageName) && !((String)packageManager.getApplicationLabel(app)).startsWith("com.")) {
+                String name = (String)packageManager.getApplicationLabel(app);
+                uiList.add(name);
+            }
+        }
+        SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(ctx);
+        Boolean switchPref = sharedPref.getBoolean
+                (SettingsActivity.KEY_PREF_SWITCH_1, false);
+        String thresholdPref = sharedPref.getString(SettingsActivity.KEY_PREF_THRESHOLD_1, null);
+        if (switchPref) {
+            Collections.sort(uiList);
+        } else {
+            Collections.sort(uiList, Collections.reverseOrder());
+        }
+
+        for (String name : uiList) {
+            System.out.println("Name: " + name);
+        }
+
+        System.out.println("End refersh list");
     }
 
     private void refreshTemplateList() {
