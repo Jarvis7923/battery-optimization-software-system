@@ -11,11 +11,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.DashPathEffect;
+import android.graphics.Paint;
 import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -25,9 +27,11 @@ import android.app.Service;
 
 import com.androidplot.Plot;
 import com.androidplot.util.PixelUtils;
+import com.androidplot.xy.BoundaryMode;
 import com.androidplot.xy.CatmullRomInterpolator;
 import com.androidplot.xy.LineAndPointFormatter;
 import com.androidplot.xy.SimpleXYSeries;
+import com.androidplot.xy.StepMode;
 import com.androidplot.xy.XYGraphWidget;
 import com.androidplot.xy.XYPlot;
 import com.androidplot.xy.XYSeries;
@@ -39,16 +43,20 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.preference.PreferenceManager;
 
+import android.os.Handler;
+import android.os.Message;
 import android.view.View;
 
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import java.text.DecimalFormat;
 import java.text.FieldPosition;
 import java.text.Format;
 import java.text.ParsePosition;
@@ -59,6 +67,9 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Map;
+import java.util.Observable;
+import java.util.Observer;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -68,23 +79,162 @@ import android.provider.Settings;
 
 public class MainActivity extends AppCompatActivity {
 
+    int battery_threshold_pref;
+    boolean isNotified;
+
+    private static class BatteryDisplayViews {
+        TextView isCharging;
+        TextView timeLeft;
+        ProgressBar progressBar;
+        XYPlot plot;
+    }
+    private class BatteryInfo {
+        int batLevel;
+        boolean isCharging;
+        long timeLeft;
+        public BatteryInfo (int batLevel, boolean isCharging) {
+            this.batLevel=batLevel;
+            this.isCharging=isCharging;
+            this.timeLeft = -1;
+        }
+    }
+
+    private BatteryDataSource batteryDataSource;
+    private BatteryDisplayViews batteryDisplayViews;
+    private BatteryInfo batteryInfo;
+
+
+    private int batteryProfileIndex;
+    private final int SAMPLE_SIZE = 100;
+    private SimpleXYSeries batteryProfileSeries;
+    private Handler updateUIHandler = null;
+    private void createUpdateUiHandler() {
+        if(updateUIHandler == null) {
+            updateUIHandler = new Handler() {
+                @Override
+                public void handleMessage(Message msg) { updateUI((BatteryInfo)msg.obj);
+                }
+            };
+        }
+    }
+
+    private void updateUI(BatteryInfo batteryInfo) {
+        if (batteryInfo.isCharging) {
+            isNotified = false;
+            batteryDisplayViews.isCharging.setText(String.valueOf("Currently Charging"));
+            batteryDisplayViews.progressBar.setProgressTintList(ColorStateList.valueOf(Color.GREEN));
+            if (batteryInfo.timeLeft == -1)
+                batteryDisplayViews.timeLeft.setText(String.valueOf("Can't calculate time")  );
+            else if (batteryInfo.timeLeft == 0)
+                batteryDisplayViews.timeLeft.setText(String.valueOf("Fully charged") );
+            else
+                batteryDisplayViews.timeLeft.setText(String.valueOf("Time until charged: " + String.valueOf(batteryInfo.timeLeft / 1000) + " s." ));
+        }
+        else {
+            batteryDisplayViews.isCharging.setText(String.valueOf("Not Charging"));
+            batteryDisplayViews.progressBar.setProgressTintList(ColorStateList.valueOf(Color.YELLOW));
+            batteryDisplayViews.timeLeft.setText(String.valueOf("Time until charged: Never!"));
+        }
+        batteryDisplayViews.progressBar.setProgress(batteryInfo.batLevel);
+    }
+    // update the plot in the new thread and passing message to the main thread to update the UI
+    private class BatteryDisplayUpdater implements Observer {
+        BatteryDisplayViews batteryDisplayViews;
+        public BatteryDisplayUpdater(BatteryDisplayViews batteryDisplayViews) {
+            this.batteryDisplayViews = batteryDisplayViews;
+        }
+        @Override
+        public void update(Observable o, Object arg) {
+            BatteryInfo batteryInfo = (BatteryInfo)arg;
+            Message message = new Message();
+            message.obj = batteryInfo;
+            if (++batteryProfileIndex > SAMPLE_SIZE) {
+                batteryProfileSeries.removeFirst();
+                batteryDisplayViews.plot.setDomainBoundaries(0, SAMPLE_SIZE, BoundaryMode.AUTO);
+            }
+            batteryProfileSeries.addLast(++batteryProfileIndex, batteryInfo.batLevel);
+            batteryDisplayViews.plot.redraw();
+            updateUIHandler.sendMessage(message);
+        }
+    }
+
+    class BatteryDataSource implements Runnable {
+        class BatteryObservable extends Observable {
+            @Override
+            public void notifyObservers() {
+                setChanged();
+                super.notifyObservers(batteryInfo);
+            }
+        }
+        private boolean keepRunning = false;
+        private final BatteryObservable notifier = new BatteryObservable();
+
+        private final Context ctx = getApplicationContext();
+        private final BatteryManager bm = (BatteryManager)ctx.getSystemService(BATTERY_SERVICE);
+        private final BatteryInfo batteryInfo = new BatteryInfo(0, false);
+
+        void stopThread() {
+            keepRunning = false;
+        }
+
+        @RequiresApi(api = Build.VERSION_CODES.P)
+        @Override
+        public void run() {
+            try {
+                keepRunning = true;
+                IntentFilter iFilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+                Intent batteryStatus;
+
+                int status;
+
+                while (keepRunning) {
+                    Thread.sleep(100); // decrease or remove to speed up the refresh rate.
+                    batteryInfo.batLevel = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
+
+                    batteryStatus = ctx.registerReceiver(null, iFilter);
+                    status = batteryStatus.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+
+                    batteryInfo.isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL;
+
+                    SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(ctx);
+                    try {
+                        battery_threshold_pref = Integer.parseInt(sharedPref.getString(SettingsActivity.KEY_PREF_THRESHOLD_1, null));
+                    }
+                    catch (NumberFormatException e) {
+                        battery_threshold_pref = 0;
+                    }
+
+                    if (batteryInfo.batLevel <= battery_threshold_pref && !batteryInfo.isCharging && !isNotified ) {
+                        System.out.println("BELOW THRESHOLD!!!");
+                        notifyUser(ctx);
+                        isNotified = true;
+                    }
+                    if (batteryInfo.isCharging) {
+                        batteryInfo.timeLeft = bm.computeChargeTimeRemaining();
+                    }
+                    else batteryInfo.timeLeft = -1;
+
+                    notifier.notifyObservers();
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        void addObserver(Observer observer) {
+            notifier.addObserver(observer);
+        }
+        public void removeObserver(Observer observer) {
+            notifier.deleteObserver(observer);
+        }
+    }
+
     ListView listView;
-    ArrayList<String> arrList;
+    ArrayList<String> uiList;
     ArrayAdapter adapter;
-    Timer myTimer;
 
-    int t = 14;
-    XYPlot plot = null;
-    final Number[] domainLabels = {1, 2, 3, 6, 7, 8, 9, 10, 13, 14};
-    Number[] series1Numbers = {1, 4, 2, 8, 4, 16, 8, 32, 16, 64};
-    SimpleXYSeries series1 = new SimpleXYSeries(Arrays.asList(domainLabels),
-            Arrays.asList(series1Numbers), "Series1");
-
-    private static int period = 1000;
+//    private static int period = 1000;
     //private int count = 0; //Count is just for debugging purposes to ensure names are being updated
-
     public static final String SPECIFIC_APP_MESSAGE = "com.group2.boss.SPECIFIC";
-
 
 
     @Override
@@ -98,62 +248,84 @@ public class MainActivity extends AppCompatActivity {
             Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
             startActivity(intent);
         }
+        if (savedInstanceState == null) {
+            Context ctx = getApplicationContext();
+            BatteryManager bm = (BatteryManager)ctx.getSystemService(BATTERY_SERVICE);
 
-        ProgressBar progressBar = findViewById(R.id.determinateBar);
-        // todo: the progress bar color according to the charging status
-        progressBar.setProgressTintList(ColorStateList.valueOf(Color.YELLOW));
-        progressBar.setProgress(0); // todo: according to the battery level
+            batteryDisplayViews = new BatteryDisplayViews();
+            batteryDisplayViews.progressBar = (ProgressBar) findViewById(R.id.determinateBar);
+            batteryDisplayViews.isCharging = (TextView) findViewById(R.id.is_charging);
+            batteryDisplayViews.timeLeft = (TextView) findViewById(R.id.timeToCharge);
+            batteryDisplayViews.progressBar.setProgressTintList(ColorStateList.valueOf(Color.YELLOW));
+            batteryDisplayViews.plot = (XYPlot) findViewById(R.id.plot);
 
-        // initialize our XYPlot reference:
-        plot = (XYPlot) findViewById(R.id.plot);
+            BatteryDisplayUpdater batteryDisplayUpdater = new BatteryDisplayUpdater(batteryDisplayViews);
 
-        // create formatters to use for drawing a series using LineAndPointRenderer
-        // and configure them from xml:
-        LineAndPointFormatter series1Format =
-                new LineAndPointFormatter(Color.RED, null, null, null);
-        // add a new series' to the xyplot:
-        plot.addSeries(series1, series1Format);
+            battery_threshold_pref = 0;
+            isNotified = false;
 
-//        plot.getGraph().getLineLabelStyle(XYGraphWidget.Edge.BOTTOM).setFormat(new Format() {
-//            @Override
-//            public StringBuffer format(Object obj, StringBuffer toAppendTo, FieldPosition pos) {
-//                return null;
-////                int i = Math.round(((Number) obj).floatValue());
-////                return toAppendTo.append(domainLabels[i]);
-//            }
-//            @Override
-//            public Object parseObject(String source, ParsePosition pos) {
-//                return null;
-//            }
-//        });
+            batteryDisplayViews.plot.setRangeBoundaries(0, 100, BoundaryMode.FIXED);
+            batteryDisplayViews.plot.setRangeStep(StepMode.INCREMENT_BY_VAL, 25);
+            batteryDisplayViews.plot.setDomainBoundaries(0, SAMPLE_SIZE, BoundaryMode.FIXED);
+            batteryDisplayViews.plot.setDomainStep(StepMode.INCREMENT_BY_VAL, SAMPLE_SIZE / 4);
 
+            batteryDataSource = new BatteryDataSource();
+            
+            batteryProfileIndex = 0;
+            Number[] domainLabels = {batteryProfileIndex};
+            Number[] series1Numbers = {bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)};
+            batteryProfileSeries = new SimpleXYSeries(Arrays.asList(domainLabels), Arrays.asList(series1Numbers), "Battery Profile");
 
+            batteryDataSource.addObserver(batteryDisplayUpdater);
+
+            LineAndPointFormatter formatter1 = new LineAndPointFormatter(
+                    Color.rgb(0, 200, 0), null, null, null);
+            formatter1.getLinePaint().setStrokeJoin(Paint.Join.ROUND);
+            formatter1.getLinePaint().setStrokeWidth(10);
+
+            batteryDisplayViews.plot.addSeries(batteryProfileSeries, formatter1);
+            createUpdateUiHandler();
+
+            batteryDisplayViews.plot.getGraph().getLineLabelStyle(XYGraphWidget.Edge.BOTTOM).setFormat(new Format() {
+                @Override
+                public StringBuffer format(Object obj, StringBuffer toAppendTo, FieldPosition pos) {
+                    int i = Math.round(((Number) obj).floatValue());
+                    return toAppendTo.append("");
+                }
+                @Override
+                public Object parseObject(String source, ParsePosition pos) {
+                    return null;
+                }
+            });
+        }
         listView = (ListView)findViewById(R.id.AppList);
-        arrList = new ArrayList<>();
-        arrList.add("Temp");
-        adapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1, arrList);
+        uiList = new ArrayList<>();
+        uiList.add("Click refresh to load all running processes!");
+        adapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1, uiList);
 
-        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                System.out.println("Clicked element! ID: " + id + " Position: " + position);
-                Intent intent = new Intent(getApplicationContext(), SpecificAppActivity.class);
-                String name = arrList.get(position);
-                intent.putExtra(SPECIFIC_APP_MESSAGE, name);
-                startActivity(intent);
+        Button refreshButton = (Button)findViewById(R.id.button_id);
+        refreshButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                refreshList();
             }
         });
 
-        myTimer = new Timer();
-        myTimer.schedule(new TimerTask() {
-            @Override
-            public void run() {
-                TimerMethod();
-            }
-
-        }, 0, 300);
-
         listView.setAdapter(adapter);
+    }
+
+
+    @Override
+    public void onResume() {
+        // kick off the data generating thread
+        Thread batteryMonitorThread = new Thread(batteryDataSource);
+        batteryMonitorThread.start();
+        super.onResume();
+    }
+
+    @Override
+    public void onPause() {
+        batteryDataSource.stopThread();
+        super.onPause();
     }
 
     @Override
@@ -180,130 +352,36 @@ public class MainActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    private void TimerMethod() {
-        this.runOnUiThread(Update_List);
-        this.runOnUiThread(Update_Battery_Charging_Status);
+    private void refreshList() {
+        Context ctx = getApplicationContext();
+        PackageManager packageManager = ctx.getPackageManager();
+        UsageStatsManager usm = (UsageStatsManager) ctx.getSystemService(Context.USAGE_STATS_SERVICE);
+        Calendar calendar = Calendar.getInstance();
+        long endTime = calendar.getTimeInMillis();
+        calendar.add(Calendar.YEAR, -1);
+        long startTime = calendar.getTimeInMillis();
+        Map<String, UsageStats> stats = usm.queryAndAggregateUsageStats(startTime, endTime);
+        List<ApplicationInfo> apps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA);
+        adapter.clear();
+        uiList.clear();
+        for (ApplicationInfo app : apps) {
+            if (stats.containsKey(app.packageName) && !((String)packageManager.getApplicationLabel(app)).startsWith("com.")) {
+                String name = (String)packageManager.getApplicationLabel(app);
+                uiList.add(name);
+            }
+        }
+        SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(ctx);
+        Boolean switchPref = sharedPref.getBoolean
+                (SettingsActivity.KEY_PREF_SWITCH_1, false);
+        String thresholdPref = sharedPref.getString(SettingsActivity.KEY_PREF_THRESHOLD_1, null);
+        if (switchPref) {
+            Collections.sort(uiList);
+        } else {
+            Collections.sort(uiList, Collections.reverseOrder());
+        }
+
+        adapter.notifyDataSetChanged();
     }
-
-    private Runnable Update_Battery_Charging_Status = new Runnable() {
-        @Override
-        public void run() {
-            Context ctx = getApplicationContext();
-            BatteryManager bm = (BatteryManager)ctx.getSystemService(BATTERY_SERVICE);
-            TextView is_charging_view = (TextView)findViewById(R.id.is_charging);
-            TextView time_left_view = (TextView)findViewById(R.id.timeToCharge);
-            int batLevel = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
-
-            System.out.println("BATLEVEL: " + batLevel);
-            ProgressBar progressBar = findViewById(R.id.determinateBar);
-            progressBar.setProgress(batLevel);
-
-
-            series1.addLast(++t, batLevel);
-            plot.redraw();
-
-            IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
-            Intent batteryStatus = ctx.registerReceiver(null, ifilter);
-            int status = batteryStatus.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
-            boolean isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                    status == BatteryManager.BATTERY_STATUS_FULL;
-
-            SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(ctx);
-            int battery_threshold_pref;
-            try {
-                battery_threshold_pref = Integer.parseInt(sharedPref.getString(SettingsActivity.KEY_PREF_THRESHOLD_1, null));
-            }
-            catch (NumberFormatException e) {
-                battery_threshold_pref = 0;
-            }
-
-            if (batLevel <= battery_threshold_pref) {
-                System.out.println("BELOW THRESHOLD!!!");
-                notifyUser(ctx);
-            }
-
-            if (isCharging) {
-                is_charging_view.setText("Currently charging");
-                progressBar.setProgressTintList(ColorStateList.valueOf(Color.GREEN));
-
-                long time_left = bm.computeChargeTimeRemaining();
-                //System.out.println("Time left: " + time_left);
-                if (time_left == -1)
-                    time_left_view.setText("Can't calculate time");
-                else if (time_left == 0)
-                    time_left_view.setText("Fully charged");
-                else
-                    time_left_view.setText("Time until charged: " + String.valueOf(time_left / 1000) + " seconds.");
-            }
-            else {
-                is_charging_view.setText("Not currently charging");
-                progressBar.setProgressTintList(ColorStateList.valueOf(Color.YELLOW));
-
-                time_left_view.setText(String.valueOf("Time until charged: Never!"));
-            }
-        }
-    };
-
-    private final Runnable Update_List = new Runnable() {
-        public void run() {
-            System.out.println("Tick!");
-            adapter.clear();
-
-            Context ctx = getApplicationContext();
-            PackageManager packageManager = ctx.getPackageManager();
-            UsageStatsManager usm = (UsageStatsManager) ctx.getSystemService(Context.USAGE_STATS_SERVICE);
-            Calendar calendar = Calendar.getInstance();
-            long endTime = calendar.getTimeInMillis();
-            calendar.add(Calendar.YEAR, -1);
-            long startTime = calendar.getTimeInMillis();
-
-            UsageEvents uEvents = usm.queryEvents(startTime, endTime);
-            arrList.clear();
-            while (uEvents.hasNextEvent()) {
-                // https://stackoverflow.com/questions/21215152/how-to-get-names-of-background-running-apps-in-android
-                UsageEvents.Event e = new UsageEvents.Event();
-                uEvents.getNextEvent(e);
-                String packageName = e.getPackageName();
-                try {
-                    String name = packageManager.getApplicationInfo(packageName, 0).loadLabel(packageManager).toString();
-                    arrList.add(name);
-                } catch (NameNotFoundException nameNotFoundException) {
-
-                }
-            }
-            Set<String> set = new LinkedHashSet<>();
-            set.addAll(arrList);
-            arrList.clear();
-            arrList.addAll(set);
-            ListIterator<String> iter = arrList.listIterator();
-            while (iter.hasNext()) {
-                if (iter.next().startsWith("com.")) {
-                    iter.remove();
-                }
-            }
-
-            SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(ctx);
-            Boolean switchPref = sharedPref.getBoolean
-                    (SettingsActivity.KEY_PREF_SWITCH_1, false);
-            String thresholdPref = sharedPref.getString(SettingsActivity.KEY_PREF_THRESHOLD_1, null);
-            //if (thresholdPref != null)
-            //   System.out.println("Threshold value: " + thresholdPref);
-            if (switchPref) {
-                // Sort alphabetically ascending
-                // Conditional just to not add too much noise to logs
-                Collections.sort(arrList);
-                //if (count % 5 == 0)
-                //   System.out.println("Ascending pref");
-            } else {
-                // Sort alphabetically descending
-                // Conditional just to not add too much noise to logs
-                //if (count % 5 == 0)
-                //    System.out.println("Descending pref");
-            }
-
-            adapter.notifyDataSetChanged();
-        }
-    };
 
     @RequiresApi(api = Build.VERSION_CODES.O)
     private void notifyUser(Context ctx) {
@@ -353,16 +431,5 @@ public class MainActivity extends AppCompatActivity {
 
         List<UsageStats> usageStatsList = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY,startTime,endTime);
         return usageStatsList;
-    }
-
-    private static boolean isForeground(Context ctx, String myPackage){
-        ActivityManager manager = (ActivityManager) ctx.getSystemService(ACTIVITY_SERVICE);
-        List<ActivityManager.RunningTaskInfo> runningTaskInfo = manager.getRunningTasks(1);
-
-        ComponentName componentInfo = runningTaskInfo.get(0).topActivity;
-        if(componentInfo.getPackageName().equals(myPackage)) {
-            return true;
-        }
-        return false;
     }
 }
