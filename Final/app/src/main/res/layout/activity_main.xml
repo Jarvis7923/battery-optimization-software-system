@@ -83,6 +83,7 @@
             app:layout_constraintEnd_toEndOf="parent" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 
+
     <com.androidplot.xy.XYPlot
         android:id="@+id/plot"
         style="@style/APDefacto.Light"
@@ -104,25 +105,44 @@
         app:title=""
         tools:layout_editor_absoluteX="-41dp" />
 
-    <TextView
-        android:id="@+id/appListText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:hint="App List"
-        android:textColorHint="@color/ap_black"
-        android:layout_marginTop="16dp"
-        android:layout_marginBottom="6dp"
-        android:textColor="@color/ap_black"
-        android:textSize="20sp"
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/middleConstraintLayout"
+        android:layout_width="match_parent"
+        android:layout_height="36dp"
+        android:layout_marginTop="11dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/plot" />
+        app:layout_constraintTop_toBottomOf="@+id/plot"
+        app:layout_constraintVertical_bias="0.0">
+        <Button
+            android:id="@+id/button_id"
+            android:layout_width="100dp"
+            android:layout_height="38dp"
+            android:layout_marginEnd="16dp"
+            android:text="refresh"
+            app:layout_constraintBottom_toBottomOf="@+id/appListText"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <TextView
+            android:id="@+id/appListText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginBottom="5dp"
+            android:hint="App List"
+            android:textColor="@color/ap_black"
+            android:textColorHint="@color/ap_black"
+            android:textSize="20sp"
+            app:layout_constraintBottom_toBottomOf="@+id/button_id"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="@+id/button_id" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <ListView
         android:id="@+id/AppList"
         android:layout_width="match_parent"
-        android:layout_height="400dp"
-        android:layout_marginTop="4dp"
+        android:layout_height="500dp"
         android:background="@drawable/back"
         android:divider="#F9F9F9"
         android:dividerHeight="2dp"
@@ -132,7 +152,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/appListText"
+        app:layout_constraintTop_toBottomOf="@+id/middleConstraintLayout"
         app:layout_constraintVertical_bias="0.0" />
 
 
