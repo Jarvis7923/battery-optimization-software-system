@@ -59,6 +59,7 @@ import android.widget.TextView;
 import java.text.DecimalFormat;
 import java.text.FieldPosition;
 import java.text.Format;
+import java.text.NumberFormat;
 import java.text.ParsePosition;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -88,6 +89,7 @@ public class MainActivity extends AppCompatActivity {
         ProgressBar progressBar;
         XYPlot plot;
     }
+
     private class BatteryInfo {
         int batLevel;
         boolean isCharging;
@@ -102,7 +104,6 @@ public class MainActivity extends AppCompatActivity {
     private BatteryDataSource batteryDataSource;
     private BatteryDisplayViews batteryDisplayViews;
     private BatteryInfo batteryInfo;
-
 
     private int batteryProfileIndex;
     private final int SAMPLE_SIZE = 100;
@@ -235,7 +236,6 @@ public class MainActivity extends AppCompatActivity {
     //private int count = 0; //Count is just for debugging purposes to ensure names are being updated
     public static final String SPECIFIC_APP_MESSAGE = "com.group2.boss.SPECIFIC";
 
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -267,7 +267,6 @@ public class MainActivity extends AppCompatActivity {
             batteryDisplayViews.plot.setRangeStep(StepMode.INCREMENT_BY_VAL, 25);
             batteryDisplayViews.plot.setDomainBoundaries(0, SAMPLE_SIZE, BoundaryMode.FIXED);
             batteryDisplayViews.plot.setDomainStep(StepMode.INCREMENT_BY_VAL, SAMPLE_SIZE / 4);
-
             batteryDataSource = new BatteryDataSource();
             
             batteryProfileIndex = 0;
@@ -281,6 +280,7 @@ public class MainActivity extends AppCompatActivity {
                     Color.rgb(0, 200, 0), null, null, null);
             formatter1.getLinePaint().setStrokeJoin(Paint.Join.ROUND);
             formatter1.getLinePaint().setStrokeWidth(10);
+            batteryDisplayViews.plot.getGraph().getLineLabelStyle(XYGraphWidget.Edge.LEFT).setFormat(new DecimalFormat("0"));
 
             batteryDisplayViews.plot.addSeries(batteryProfileSeries, formatter1);
             createUpdateUiHandler();
@@ -296,6 +296,17 @@ public class MainActivity extends AppCompatActivity {
                     return null;
                 }
             });
+//            batteryDisplayViews.plot.getGraph().getLineLabelStyle(XYGraphWidget.Edge.LEFT).setFormat(new Format() {
+//                @Override
+//                public StringBuffer format(Object obj, StringBuffer toAppendTo, FieldPosition pos) {
+////                    int i = Math.round(((Number) obj).floatValue());
+//                    return toAppendTo.append((Number) obj+"%");
+//                }
+//                @Override
+//                public Object parseObject(String source, ParsePosition pos) {
+//                    return null;
+//                }
+//            });
         }
         listView = (ListView)findViewById(R.id.AppList);
         listView.setScrollingCacheEnabled(false);
