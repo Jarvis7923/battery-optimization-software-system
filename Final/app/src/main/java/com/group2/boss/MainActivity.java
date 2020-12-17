@@ -299,6 +299,7 @@ public class MainActivity extends AppCompatActivity {
             });
         }
         listView = (ListView)findViewById(R.id.AppList);
+        listView.setScrollingCacheEnabled(false);
         uiList = new ArrayList<>();
         uiList.add("Click refresh to load all running processes!");
         adapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1, uiList);
